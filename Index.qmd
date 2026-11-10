@@ -1,0 +1,155 @@
+---
+title: "Binary Logistic Regression: Model Specification, Comparison, and Interpretation"
+author: "Michaela Luceno"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: show
+    code-tools: true
+    embed-resources: true
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#|label: installing-packages 
+#|echo: false 
+
+#Installing the packages and loading the dataset 
+
+install.packages("broom.mixed")
+install.packages("ggeffects")
+install.packages("titanic")
+
+library(glmmTMB)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(broom.mixed)
+library(performance)
+library(gt)
+library(readr)
+library(DHARMa)
+library(ggeffects)
+library(titanic)
+
+titanic <- titanic_train
+```
+
+```{r}
+#Keeping the same case sample in the model 
+titanic <- titanic |>
+  select(Survived, Sex, Age, Pclass) |>
+  drop_na() |>
+  mutate(
+    Sex.Binary = case_when(
+      Sex == "male" ~ 0,
+      Sex == "female" ~ 1)) |>
+  mutate(
+    Survived.Char = case_when(
+      Survived == 0 ~ "Died",
+      Survived == 1 ~ "Survived")) |>
+  mutate(
+    Pclass.Char = case_when(
+      Pclass == "1" ~ "First Class",
+      Pclass == "2" ~ "Second Class",
+      Pclass == "3" ~ "Third Class")) |>
+  mutate(Pclass = factor(Pclass, levels = c(1, 2, 3))) |>
+  select(Survived, Survived.Char, Sex, Sex.Binary, Pclass, Pclass.Char, Age)
+
+n<-nrow(titanic)
+```
+
+```{r, descriptives}
+#|label: data-table 
+#|tbl-cap: "Descriptive Statistics"
+
+
+# 1.4 - Exploring data and important values 
+descriptives <- titanic |>
+  summarise(across(c(Age),
+    list(mean = mean, sd = sd, min = min, max = max)))|>
+    pivot_longer(
+    everything(),
+    names_to = c("variable", ".value"),
+    names_sep = "_")
+
+descriptives |>
+  gt() |>
+  fmt_number(columns = where(is.numeric), decimals = 2)
+descriptives
+```
+
+```{r, survived}
+titanic|>
+  count(Survived.Char)|>
+  gt()
+```
+
+```{r, sex}
+titanic|>
+  count(Sex.Binary)|>
+  gt()
+```
+
+```{r, Pclass}
+titanic|>
+  count(Pclass.Char)|>
+  gt()
+```
+
+## Patterns Observed 
+
+Before looking into the interactions between the predictors, the general patterns that can be observed are that the mean age is 29.6, significantly more died than survived, there were more males than females, and that the largest amounts of tickets sold were from third class. These cell counts are not evenly distributed, but to varying degrees. Upon further inspection it can be found that 40.6% survived, versus 59.4% did not, however regarding the sex of those on board, the distribution was increasingly uneven as there was 63.4% males and 36.6% females. Finally, with respect to class/socioeconomic status was relatively even between first and second class (26.1% and 24.2% respectively), and third class being 50%. These results are relatively consistent with my expectations, as the social norms for the time period included slightly more liberties for males. Additionally, the collision being catastrophic would lead to larger fatalities. Finally, the socioeconomic status was slightly unexpected, as I had previously assumed a luxury would have a larger proportion of first and second class tickets, comparative to the reality of the larger third class ticket sales. 
+
+```
+DO I NEED TO FIX THE #| AT THE TOP?? RENDER TO FIND OUT 
+```
+
+## PART 2 - Specify Competing & Estimate Regression Models 
+
+### Predicting Patterns 
+
+In this dataset, we have the outcome variable, being those that survived, based on the predict values being age, socioeconomic status (SES) and sex. Based on on the social and political climate of 1912, the survival of individuals would likely reflect specific factors. For example, those with a first class ticket are likely of a higher SES, and within this time period may have been viewed as more "valuable", prioritizing their lives over the lives of those in third class. Additionally, based on the lower quantities of women and a lower valuation of worth within this time in history, it may be thought that there may be a significantly lower proportion of women that survived, compared to men, even when considering the initial proportions. Finally, I expect that the survivors will likely be of lower age, potentially below 30. This would be for reasons pertaining to ocean survival in the lifeboats, and a longer lifespan ahead of them after being rescued, as unfortunate as these ideas are. 
+
+### Specifying Four Nested Models
+
+```{r, nested model fit}
+
+#Intercept-Only model 
+model0 <- glmmTMB(Survived ~ 1,data = titanic,
+  family = binomial(link = "logit"))
+
+#Survival Based on Sex  
+model1 <- glmmTMB(
+  Survived ~ Sex, 
+  data = titanic, 
+  family = binomial(link = "logit"))
+
+#Survival Based on Sex + Ticket Class 
+model2 <- glmmTMB(
+  Survived ~ Sex + Pclass, 
+  data = titanic, 
+  family = binomial(link = "logit"))
+
+#Survival Based on Sex + Ticket Class + Age 
+model3 <- glmmTMB(
+  Survived ~ Sex + Pclass + Age, 
+  data = titanic,
+  family = binomial(link = "logit"))
+```
+
+```r
+summary(model0)
+summary(model1)
+summary(model2)
+summary(model3)
+
+confint(model3)
+```
+
+

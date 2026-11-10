@@ -1,0 +1,9 @@
+[
+  {
+    "objectID": "Index.html",
+    "href": "Index.html",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "",
+    "text": "library(glmmTMB) library(dplyr) library(tidyr) library(ggplot2) library(broom.mixed) library(performance) library(gt) library(readr) library(DHARMa) library(ggeffects) library(titanic)"
+  }
+]
