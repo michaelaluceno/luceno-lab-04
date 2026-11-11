@@ -14,16 +14,12 @@ execute:
   warning: false
   message: false
 ---
-
+# 1. Install Packages & Load Dataset
 ```{r}
 #|label: installing-packages 
 #|echo: false 
 
-#Installing the packages and loading the dataset 
-
-install.packages("broom.mixed")
-install.packages("ggeffects")
-install.packages("titanic")
+#1.2 Installing the packages and loading the dataset 
 
 library(glmmTMB)
 library(dplyr)
@@ -37,6 +33,7 @@ library(DHARMa)
 library(ggeffects)
 library(titanic)
 
+#1.3 - Load the dataset 
 titanic <- titanic_train
 ```
 
@@ -63,13 +60,24 @@ titanic <- titanic |>
 
 n<-nrow(titanic)
 ```
+## Variables
 
+Within this dataset, we will complete an analysis of n = `r nrow(titanic)`, and using 3 predictor variables. 
+**Sex**: Binary variable of male or female 
+**Pclass**: Socioeconomic status of first class (Pclass1), second class (Pclass2), third class (Pclass3). Also noted as 'SES'. 
+**Age**: Continuous variable of each individual's age 
+The outcome variable was **Survived**, a binary variable of whether or not the indiviudal lived. 
+
+# 2. Exploring the Data 
+
+## 2.1 Descriptive Statistics
 ```{r, descriptives}
-#|label: data-table 
-#|tbl-cap: "Descriptive Statistics"
+#| label: data-table 
+#| tbl-cap: "Descriptive Statistics"
+#| include: false
 
 
-# 1.4 - Exploring data and important values 
+#Exploring data and important values 
 descriptives <- titanic |>
   summarise(across(c(Age),
     list(mean = mean, sd = sd, min = min, max = max)))|>
@@ -77,48 +85,59 @@ descriptives <- titanic |>
     everything(),
     names_to = c("variable", ".value"),
     names_sep = "_")
+```
+## 2.2 Cell Counts 
 
+### Age
+```{r, descriptives}
+
+#Descriptive statistics for continuous variable (age)
 descriptives |>
   gt() |>
   fmt_number(columns = where(is.numeric), decimals = 2)
 descriptives
 ```
-
+### Survived (Outcome Variable)
 ```{r, survived}
 titanic|>
   count(Survived.Char)|>
   gt()
 ```
-
+### Sex 
 ```{r, sex}
 titanic|>
   count(Sex.Binary)|>
   gt()
 ```
-
+### SES/Class
 ```{r, Pclass}
 titanic|>
   count(Pclass.Char)|>
   gt()
 ```
 
-## Patterns Observed 
+## 2.3 Patterns Observed 
 
-Before looking into the interactions between the predictors, the general patterns that can be observed are that the mean age is 29.6, significantly more died than survived, there were more males than females, and that the largest amounts of tickets sold were from third class. These cell counts are not evenly distributed, but to varying degrees. Upon further inspection it can be found that 40.6% survived, versus 59.4% did not, however regarding the sex of those on board, the distribution was increasingly uneven as there was 63.4% males and 36.6% females. Finally, with respect to class/socioeconomic status was relatively even between first and second class (26.1% and 24.2% respectively), and third class being 50%. These results are relatively consistent with my expectations, as the social norms for the time period included slightly more liberties for males. Additionally, the collision being catastrophic would lead to larger fatalities. Finally, the socioeconomic status was slightly unexpected, as I had previously assumed a luxury would have a larger proportion of first and second class tickets, comparative to the reality of the larger third class ticket sales. 
+Before looking into the interactions between the predictors, the general patterns that can be observed are that the mean age is 29.6, significantly more died than survived, there were more males than females, and that the largest amounts of tickets sold were from third class. These cell counts are not evenly distributed, but to varying degrees. Upon further inspection it can be found that 40.6% survived, versus 59.4% did not, however regarding the sex of those on board, the distribution was increasingly uneven as there was 63.4% males and 36.6% females. Finally, with respect to class/socioeconomic status was relatively even between first and second class (26.1% and 24.2% respectively), and third class being 50%.
 
-```
-DO I NEED TO FIX THE #| AT THE TOP?? RENDER TO FIND OUT 
-```
 
-## PART 2 - Specify Competing & Estimate Regression Models 
+# 3. Specify Competing & Estimate Regression Models 
 
-### Predicting Patterns 
+## 3.1 Predicting Patterns 
 
-In this dataset, we have the outcome variable, being those that survived, based on the predict values being age, socioeconomic status (SES) and sex. Based on on the social and political climate of 1912, the survival of individuals would likely reflect specific factors. For example, those with a first class ticket are likely of a higher SES, and within this time period may have been viewed as more "valuable", prioritizing their lives over the lives of those in third class. Additionally, based on the lower quantities of women and a lower valuation of worth within this time in history, it may be thought that there may be a significantly lower proportion of women that survived, compared to men, even when considering the initial proportions. Finally, I expect that the survivors will likely be of lower age, potentially below 30. This would be for reasons pertaining to ocean survival in the lifeboats, and a longer lifespan ahead of them after being rescued, as unfortunate as these ideas are. 
+In this dataset, we have the outcome variable, being those that survived, based on the predict values being age, socioeconomic status (SES) and sex. 
 
-### Specifying Four Nested Models
+Based on on the social and political climate of 1912, the survival of individuals would likely reflect specific factors. For example, those with a first class ticket are likely of a higher SES, and within this time period may have been viewed as more "valuable", prioritizing their lives over the lives of those in third class.
+
+Additionally, though women did not possess as many rights within this time in history, they have childbearing abilities, which may contribute to a higher rate of survival in women compared to men. 
+
+Finally, I expect that the survivors will likely be of lower age, potentially below 30. This would be for reasons pertaining to ocean survival in the lifeboats, and a longer lifespan ahead of them after being rescued, as unfortunate as these ideas are. 
+
+## 3.2 Specifying Four Nested Models
 
 ```{r, nested model fit}
+
+#2.2 - Specifying Nested Models 
 
 #Intercept-Only model 
 model0 <- glmmTMB(Survived ~ 1,data = titanic,
@@ -142,14 +161,387 @@ model3 <- glmmTMB(
   data = titanic,
   family = binomial(link = "logit"))
 ```
-
-```r
-summary(model0)
-summary(model1)
-summary(model2)
-summary(model3)
-
-confint(model3)
+### 4 Models
+```{r, model description table}
+library(gt)
+model_table <- list(model0, model1, model2, model3)
+model_table <- data.frame(
+  Model = c("model0", "model1", "model2", "model3"),
+  Added = c("Intercept (null)", "Sex", "Pclass", "Age"), 
+  Formula = sapply(model_table, function(m)
+    paste(deparse(formula(m)), collapse = ""))
+)
+  
+model_table |>
+  gt()|>
+  cols_label(
+    Model = "Model",
+    Added = "Predictor added", 
+    Formula = "Formula"
+  )
 ```
 
+## 3.2 Interpreting Intercept Throughout Models 
+We can see that as the predictors are being added, there is an increase in the estimated intercept, being `r round(fixef(model1)$cond[["(Intercept)"]], 2)`, `r round(fixef(model2)$cond[["(Intercept)"]], 2)`, and `r round(fixef(model3)$cond[["(Intercept)"]], 2)`, respectively. The first intercept in Model 1 is a reflection of the females on board, as seen by the "Sexmale" category being (`r round(fixef(model1)$cond[["Sexmale"]], 2)`), showing the coefficient of their lesser likelihood of surviving compared to women. In Model 2, however when adding the Pclass, the intercept increased to `r round(fixef(model2)$cond[["(Intercept)"]], 2)`, being the log-odds of survival of the females in first class, as seen by the Sexmale decreasing to `r round(fixef(model2)$cond[["Sexmale"]], 2)`, showing the males in first class have similar likelihood of survival as females (as we've held class constant with little coefficient change), followed by the Pclass2 (`r round(fixef(model2)$cond[["Pclass2"]], 2)`) and 3 (`r round(fixef(model2)$cond[["Pclass3"]], 2)`) which have increasingly worse survival rates. Finally, in Model 3 with the addition of age, whose slope coefficient is `r round(fixef(model3)$cond[["(Intercept)"]], 2)`, meaning that every year added decreases the log-odds of survival by such value. This means that those who were younger had a higher odds of survival. The slope coefficients showing a decreased rate of survival is due to their negative value, showing that the inclusion of that specific predictor value would decrease the odds of survival, as seen throughout their addition in each model. Looking at the AIC and BIC which penalize complexity (added predictors) when not increasing the predictive value of the equations. However, it can be seen that there is a desirable decrease in both AIC and BIC throughout the models, with model3 exhibiting the smallest of both and how this model best-fitting 
 
+# 4. Compare Model Performance 
+```{r, anova test}
+#3.1 - Conduct Nested Model χ²-tests
+
+tests <- anova(model0, model1, model2, model3)
+tests
+
+```
+## 4.1 Comparing Models 
+```{r, creating table}
+
+#Creating table from ANOVA results to retain 
+tests <- tests |>
+  select(Chisq, `Chi Df`, `Pr(>Chisq)`) |>
+  rename(
+    Nested.df = `Chi Df`,
+    Nested.Chisq.stat = Chisq,
+    Nested.p.value = `Pr(>Chisq)`)
+```
+
+```{r, nested-values}
+#| include: false
+
+ndf <- tests$Nested.df
+chi <- tests$Nested.Chisq.stat
+pv  <- tests$Nested.p.value
+
+fmt_p <- function(p) ifelse(p < .001, "< .001", paste0("= ", sprintf("%.3f", p)))
+```
+
+### Evaluating Predictors & Model Fit 
+
+1. As Sex was added from the intercept only model, sex can explain significantly more variation, as explained in a few of the produced values. The change in Degrees of Freedom shows the extra row of male versus female, the χ² statistic, whose value exhibits the decrease in deviance, so the larger the number, the better the fit of the model. We can see that there was a large increase, χ²(`r ndf[2]`) = `r round(chi[2], 2)`, p `r fmt_p(pv[2])` in this value, meaning that the model has a better fit and accounts for significantly more variation than the intercept model alone. Additionally, the Pr(>Chisq) value shows high levels of significance.
+
+2. The Pclass additionally improves model fit beyond sex, as seen by another substantially large value, χ²(`r ndf[3]`) = `r round(chi[3], 2)`, p `r fmt_p(pv[3])` degrees of freedom, in the Chisq column (χ² statistic), representing a drop in deviance, reflecting a better-fitting model. Although it is not as large as the change from Model 0 to Model 1, the number is adequate to believe that it positively impacts the predictive value of the model. There was no change in the p-value, however. 
+
+3. Finally, adding age does improve the model fit beyond the value of 'Sex' and 'Pclass', however according ot the χ² value, the least out of all predictors, as it was only as it was only χ²(`r ndf[4]`) = `r round(chi[4], 2)`, p `r fmt_p(pv[4])`. However, this change is enough to believe that the addition of 'Age' does have a positive effect on model fit. There was an small increase in the p-value, but it is still showing significance and is not reflective on the value of the predictor. 
+It should be noted that the change in the degrees of freedom is reflective of the addition of new predictors/rows within the model. 
+
+## 4.2-3 Extract Model Performance & Combine Results 
+```{r, extract + combine model metrics}
+
+#3.2 - Extracting Metrics into "Glance"
+glance0 <- broom.mixed::glance(model0)
+glance1 <- broom.mixed::glance(model1)
+glance2 <- broom.mixed::glance(model2)
+glance3 <- broom.mixed::glance(model3)
+
+#Renaming the Models
+models <- c(
+  "model0: Null",
+  "model1: Sex",
+  "model2: + Pclass",
+  "model3: + Age")
+
+#Combining the rows 
+glances <- rbind(glance0, glance1, glance2, glance3)
+
+```
+## 4.3 Combining Results 
+```{r, combining results}
+
+#3.3 - Combining sets of results 
+comparison_table <- cbind(
+  Model = models,
+  glances,
+  tests)
+```
+## 4.4 Combined Model Comparison Table
+```{r, model comparison table}
+
+#Creating Model Comparison Table
+comparison_table |>
+  select(
+    Model,
+    AIC,
+    BIC,
+    logLik,
+    deviance,
+    df.residual,
+    Nested.df,
+    Nested.Chisq.stat,
+    Nested.p.value) |>
+  gt() |>
+  cols_label(
+    Model = "Model",
+    AIC = "AIC",
+    BIC = "BIC",
+    logLik = "Log-likelihood",
+    deviance = "Deviance",
+    df.residual = "Residual.df",
+    Nested.df = "Nested df",
+    Nested.Chisq.stat = "Nested χ²",
+    Nested.p.value = "Nested p") |>
+  fmt_number(
+    columns = c(
+      AIC,
+      BIC,
+      logLik,
+      deviance,
+      Nested.Chisq.stat),
+    decimals = 3) |>
+  fmt(
+    columns = Nested.p.value,
+    fns = function(x) {
+      ifelse(
+        is.na(x),
+        "—",
+        ifelse(x < .001, "< .001", sprintf("%.3f", x)))}) |>
+  sub_missing(
+    columns = c(Nested.df, Nested.Chisq.stat),
+    missing_text = "—")
+```
+
+```{r, performance}
+
+performance_comparison <- compare_performance(
+  model0,
+  model1,
+  model2,
+  model3,
+  rank = TRUE)
+```
+
+## 4.5 Interpreting Comparisons 
+When examining the outputted table, the model fit and complexity is reflected through the AIC and BIC values, with lower values indicating a balance between complexity and fit, and an even stronger penalty for complexity (respectively). With these criteria, the models with the lowest AIC and BIC values, being model 3, with (AIC = `r round(comparison_table$AIC[4], 2)`, BIC = `r round(comparison_table$BIC[4], 2)`), it would be the best fit to the data. As the predictors are added, the AIC and BIC values decrease significantly between all models as predictors are added, however the smallest decrease in BIC values was found between models 2 and 3 through the addition of the 'Age' predictor, yet this was the smallest improvement. While examining the likelihood-ratio tests (LRT), a larger number that the previous model is desirable, as it means that the deviance has decreased through this more complex model. When additional predictors are added, the LRT scores increase noticeably, as they become less and less negative. Similar to the AIC and BIC tests, however, although the scores still exhibit an increase in the LRT value, there is a significantly smaller increase in values from model 2 to model 3 (similar to the pattern of decreases seen in the AIC and BIC scores). The largest differences in AIC, BIC and LRT scores are seen from model 0 to model 1 (naturally), then from model 1 to model 2, and the smallest differences from model 2 to model 3 - again, these are consistent across metrics. This would reflect that the 'Sex' and 'PClass' predictors accounting for a greater variance than 'Age', providing a greater contribution. All of the above do have a nested p value of <0.001, once more highlighting the improvement of model fit. 
+
+# 5 Select Provisional Model 
+
+# Examining the Assumptions 
+
+The most promising model I am selecting is model 3. My selection criterion is based on the AIC, BIC, LRT, χ²tests, p-values and complexity. However, in order to properly select the model within the code using the LRT values. 
+```{r, select model}
+
+#Here we are designating a model that will be used
+selected_row <- comparison_table |>
+  filter(Nested.p.value < .05) |>
+  slice_tail(n = 1)
+
+#creating an object with our selected model's name for dynamic reporting
+selected_name <- as.character(selected_row$Model)
+
+#case matching for dynamic reporting
+selected_model <- switch(
+  selected_name,
+  "model0: Null" = model0,
+  "model1: Sex" = model1,
+  "model2: + Pclass" = model2,
+  "model3: + Age" = model3)
+```
+
+# 6 Evaluating Binary Logistic Regression Diagnostics 
+
+## 6.1 Linearity on Logit Scale 
+```{r, dhamra sim}
+#| echo: true
+set.seed(9041)
+res_mod3 <- simulateResiduals(model3, n = 500, plot = FALSE)
+```
+
+```{r, dharma plot}
+#| fig-height: 5.6
+#| echo: false
+plot(res_mod3)
+```
+
+## 6.2 Collinearity 
+```{r, vif}
+#| echo: false
+check_collinearity(model3)
+```
+
+```{r, vif plot}
+vif_plot <- plot(check_collinearity(model3))
+vif_plot 
+
+vif_tbl <- performance::check_collinearity(model3)
+```
+
+## 6.3 Complete separation
+
+It is important to check for complete separation using large coefficients, standard errors and code warnings through the `glmmTMB` warnings about convergence. 
+
+Upon inspecting Model 3, these characteristics are not present, and the standard error is low. 
+
+## 6.4 Influence (Influential Observations)
+
+```{r, outliers}
+testOutliers(res_mod3)
+```
+
+## 6.5 Events per predictor
+
+```{r, epv}
+#| echo: false
+n_event <- sum(titanic$Survived == 1)
+n_nonevent <- sum(titanic$Survived == 0)
+n_coef <- length(fixef(model3)$cond)
+```
+It is necessary to have at least 10 events and 10 non-events per coefficient. This data displays 290 events and 424 nonevents, meaning the events are sufficient. 
+
+
+### Report your diagnostic findings
+
+When looking at the diagnostic reports from Model 3, we can see the assumptions which have been satisfied versus those which have not. We can initially see that the QQ displays residuals with very small deviation from the predicted plot from the uniform distribution typically seen in a log-odds scale. The expected and the observed remain quite similar, and there are seemingly no observations which carry high influence. There is little deviation away from the expected as well. With this, it is important to check for collinearity, as that might influence the shape of the distribution or the variance that we have seen, however with a VIF of `r round(max(vif_tbl$VIF), 2)`, it is seen that there is negligible collinearity to consider. When examining complete separation, though there is a proper distribution and prediction, there is no single predictor that seemingly predicts the outcome variable without input. In conjunction with this observation, when looking at events per predictor, we can see that there are sufficient amounts of each coefficient for the predictor variables (in the hundreds, despite the minimum expectation being 10 for each coefficient). Finally, looking into whether all the aforementioned data can be used reliably would involved assessing the outlier values which may have influence, however the outliers have not been noted, and the data looks to remain within expected values. As a whole, there are seemingly no significant problems within diagnostics of the model which would allude to its unreliability. The distribition, influential values, residuals plots, collinearity, and other significant features of the data are seemingly substantial to allow for this model to reliably predict data. 
+
+# 7. Select and Report Preferred Model
+The model that I have chosen is Model 3. This model considers age, sex and socioeconomic status - which can be dangerous to maintain this level of complexity. However, upon conducting AIC, BIC and nested-model χ²-tests, Model 3 shows the lowest AIC and BIC scores, meaning that the complexity and predictive ability create an adequate and ideal balance. It additionally has the highest LRT score (χ²-test), meaning that it has a reduced deviance as a model. Also, when assessing diagnostic plots and values, there are no causes for concern with respect to the residuals, variability, influential values, and outliers. While the other models display similar values, Model 3's values have the most ideal values compared to the rest, whether that be higher or lower, while additionally maintaining no concerns of the coefficients/diagnostics; should the plots have been problematic then other models would have been taken into consideration, with the lower values being sufficient to resolve any variability, residual deviation, etc. issues - however this was not the case. 
+
+## 7.1 Extracting Binary Logistic Regression Coefficients
+```{r, extracting results}
+
+#Extracting the Results for Coefficient Table
+coefficient_results <- broom.mixed::tidy(
+  selected_model,
+  effects = "fixed",
+  component = "cond",
+  conf.int = TRUE,
+  conf.level = 0.95)
+
+```
+
+## 7.2 Creating Binary Logistic Regression Table 
+```{r, creating coefficient table}
+
+#Creating the Table With Desired Values 
+
+coefficient_results |>
+  select(
+    term,
+    estimate,
+    std.error,
+    conf.low,
+    conf.high,
+    p.value) |>
+  gt() |>
+  cols_label(
+    term = "Predictor",
+    estimate = "Estimate",
+    std.error = "SE",
+    conf.low = "95% CI lower",
+    conf.high = "95% CI upper",
+    p.value = "p") |>
+  fmt_number(
+    columns = c(
+      estimate,
+      std.error,
+      conf.low,
+      conf.high),
+    decimals = 3) |>
+  fmt(
+    columns = p.value,
+    fns = function(x) {
+      ifelse(
+        x < .001,
+        "< .001",
+        sprintf("%.3f", x))})
+```
+
+## 7.3 Report Overall Model Performance 
+```{r, overall model performance}
+
+#Creating Table Displaying Model Performance
+selected_row |>
+  select(
+    Model,
+    AIC,
+    BIC,
+    logLik,
+    deviance,
+    df.residual,
+    Nested.df,
+    Nested.Chisq.stat,
+    Nested.p.value) |>
+  gt() |>
+  cols_label(
+    Model = "Model",
+    AIC = "AIC",
+    BIC = "BIC",
+    logLik = "Log-likelihood",
+    deviance = "Deviance",
+    df.residual = "Residual df",
+    Nested.df = "Nested df",
+    Nested.Chisq.stat = "Nested χ²",
+    Nested.p.value = "Nested p") |>
+  fmt_number(
+    columns = where(is.numeric),
+    decimals = 2)
+
+```
+
+# 8. Interpreting the Results 
+
+## 8.1 Coefficients on Log-Odds Scale  
+```{r, fixed f}
+
+#Coefficients on the Log-odds Scale 
+fixef(model3)
+```
+
+We took data from the titanic and used four nested binary logistic regression models using predictors of Sex, Age, and Socioeconomic Class (Pclass). We can assess the log-odds of each of these values while holding the others constant. 
+
+When consdering Sex, and holding the Sexmale (Males) as a reference group, this represents the *log-odds difference* between the two, while holding ge and Pclass constant. The log-odds of survival decrease by `r round(fixef(model3)$cond[["Sexmale"]], 2)` for a male versus a female.  
+
+When considering Pclass, first class (Pclass1) is going the reference group, holding Sex and Age constant. The log-odds of survival decrease by log odds of `r round(fixef(model3)$cond[["Pclass2"]], 2)` for second class and `r round(fixef(model3)$cond[["Pclass3"]], 2)` for third class. 
+
+Finally, when adding the predictor of Age and holding Sex and Pclass constant, a one point increase in age decreases the log-odds of survival by `r round(fixef(model3)$cond[["Age"]], 2)`. 
+
+## 8.2 Tranform Log-Odds into Odds 
+```{r, log-odds}
+#From Log-odds into odds ratios
+exp(fixef(model3)$cond)
+```
+
+### Confidence Intervals 
+```{r, confidence intrevals}
+#Exponentiating CI
+or_ci <- exp(confint(model3, parm = "beta_"))
+or_ci
+```
+
+We fit 4 nested models with the outcome of survival, then added Sex, Pclass and Age. We can now look at the odds of each of the predictors and their relation to survival. 
+
+### Interpreting Age
+
+While holding Sex and Class constant, a one-year increase in Age, when holding sex and the class being held constant, there is a decrease in the  odds of survival by `r round(exp(fixef(model3)$cond[["Age"]]), 2)`,
+multiplied by times the odds of survival, 95% CI \[`r round(or_ci["Age", 1], 2)`, `r round(or_ci["Age", 2], 2)`\].
+
+### Interpreting Sex
+
+When holding age and socioeconomic status constant, the log-odds difference between males and females can be found. Using females as the reference group, the males' odds of survival are decreased by with `r round(exp(fixef(model3)$cond[["Sexmale"]]), 2)` times the odds of survival, 95% CI \[`r round(or_ci["Sexmale", 1], 2)`, `r round(or_ci["Sexmale", 2], 2)`\].
+
+### Interpreting Pclass 
+
+When holding sex and age constant, the differences in odds between socioeconomic status, being Pclass2 and Pclass3 compared to the Pclass1 being the reference group. Pclass2 compared to Pclass 1 had `r round(exp(fixef(model3)$cond[["Pclass2"]]), 2)`, with the 95% CI being  times th odds of survivals with the log odds of survival being \[`r round(or_ci["Pclass2", 1], 2)`, `r round(or_ci["Pclass2", 2], 2)`\]. The Pclass3 comapred to Pclass1 is `r round(exp(fixef(model3)$cond[["Pclass3"]]), 2)` multiplied by the odds of survival is 95% CI \[`r round(or_ci["Pclass3", 1], 2)`, `r round(or_ci["Pclass3", 2], 2)`\]. 
+
+## 8.3 Visualize A Predictor 
+```{r, outcome variable - survived}
+#| fig-height: 2.8
+library(ggeffects)
+pred_sat <- ggpredict(model3, terms = "Age")
+
+ggplot(pred_sat, aes(x, predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.18) +
+  geom_line(linewidth = 1.2) +
+  labs(
+    x = "Passenger Age",
+    y = "Survival on the Titanic"
+  ) +
+  theme_classic()
+```
+
+### Results Paragraph
+
+In this statistical analysis, we used a binary GLM and the use of the logit link in order to assess the factors of Sex, Age, and Socioeconomic status (Pclass/SES). As a whole, females compared to males had higher odds of survival, `r round(exp(fixef(model3)$cond[["Sexmale"]]), 2)`, 95% CI \[`r round(or_ci["Sexmale", 1], 2)`, `r round(or_ci["Sexmale", 2], 2)`\], `r round(or_ci["Sexmale", 2], 2)`\]. This means that women were prioritized for their survival over men. When accounting for the SES, a higher class (first class over second or third) was associated with higher odds of surviving in both women and men. Decreased odds of survival seen in second class `r round(exp(fixef(model3)$cond[["Pclass2"]]), 2)`, 95% CI \[`r round(or_ci["Pclass2", 1], 2)`, `r round(or_ci["Pclass2", 2], 2)`\], versus decreased odds of survival in third class `r round(exp(fixef(model3)$cond[["Pclass3"]]), 2)`, 95% CI \[`r round(or_ci["Pclass3", 1], 2)`, `r round(or_ci["Pclass3", 2], 2)`\]. As a whole, those with a higher social status and "financial standing" were given a greater chance of survival. Finally, when accounting for age, it was seen that every additional year of age was associated in a decrease in odds of survival, `r round(exp(fixef(model3)$cond[["Age"]]), 2)`, 95% CI \[`r round(or_ci["Age", 1], 2)`, `r round(or_ci["Age", 2], 2)`\]. This shows that the priority was given to those who were younger, and even kids - similar to the prediction of the model. As seen in the movies, women, children and the rich were given priority over the alternate. 
+
+
+## 6 Discussion of Findings and Limitations
+This analysis illustrates how relationships may be deduced from binary logistic regression models, and allows for the contribution of each variable to be understood in a model weighing predictors to an outcome. This final model takes three factors into account when assess survival rate. 
+
+A limitation is that this is observational data, and that other factors pertaining to survival such as certain areas on the ship, or "self-sacrifice" for family were not taken into account. With this, other variables such as family on the ship versus at home could have played a role. There was also no account for health or mobility conditions, which could influence the nature of physical feasibility of escape. 
