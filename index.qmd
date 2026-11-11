@@ -545,3 +545,4 @@ In this statistical analysis, we used a binary GLM and the use of the logit link
 This analysis illustrates how relationships may be deduced from binary logistic regression models, and allows for the contribution of each variable to be understood in a model weighing predictors to an outcome. This final model takes three factors into account when assess survival rate. 
 
 A limitation is that this is observational data, and that other factors pertaining to survival such as certain areas on the ship, or "self-sacrifice" for family were not taken into account. With this, other variables such as family on the ship versus at home could have played a role. There was also no account for health or mobility conditions, which could influence the nature of physical feasibility of escape. 
+

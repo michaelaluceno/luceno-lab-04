@@ -1,0 +1,177 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "",
+    "text": "Code\n#|label: installing-packages \n#|echo: false \n\n#1.2 Installing the packages and loading the dataset \n\nlibrary(glmmTMB)\nlibrary(dplyr)\nlibrary(tidyr)\nlibrary(ggplot2)\nlibrary(broom.mixed)\nlibrary(performance)\nlibrary(gt)\nlibrary(readr)\nlibrary(DHARMa)\nlibrary(ggeffects)\nlibrary(titanic)\n\n#1.3 - Load the dataset \ntitanic &lt;- titanic_train\n\n\n\n\nCode\n#Keeping the same case sample in the model \ntitanic &lt;- titanic |&gt;\n  select(Survived, Sex, Age, Pclass) |&gt;\n  drop_na() |&gt;\n  mutate(\n    Sex.Binary = case_when(\n      Sex == \"male\" ~ 0,\n      Sex == \"female\" ~ 1)) |&gt;\n  mutate(\n    Survived.Char = case_when(\n      Survived == 0 ~ \"Died\",\n      Survived == 1 ~ \"Survived\")) |&gt;\n  mutate(\n    Pclass.Char = case_when(\n      Pclass == \"1\" ~ \"First Class\",\n      Pclass == \"2\" ~ \"Second Class\",\n      Pclass == \"3\" ~ \"Third Class\")) |&gt;\n  mutate(Pclass = factor(Pclass, levels = c(1, 2, 3))) |&gt;\n  select(Survived, Survived.Char, Sex, Sex.Binary, Pclass, Pclass.Char, Age)\n\nn&lt;-nrow(titanic)\n\n\n\n\nWithin this dataset, we will complete an analysis of n = 714, and using 3 predictor variables. Sex: Binary variable of male or female Pclass: Socioeconomic status of first class (Pclass1), second class (Pclass2), third class (Pclass3). Also noted as ‘SES’. Age: Continuous variable of each individual’s age The outcome variable was Survived, a binary variable of whether or not the indiviudal lived."
+  },
+  {
+    "objectID": "index.html#variables",
+    "href": "index.html#variables",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "",
+    "text": "Within this dataset, we will complete an analysis of n = 714, and using 3 predictor variables. Sex: Binary variable of male or female Pclass: Socioeconomic status of first class (Pclass1), second class (Pclass2), third class (Pclass3). Also noted as ‘SES’. Age: Continuous variable of each individual’s age The outcome variable was Survived, a binary variable of whether or not the indiviudal lived."
+  },
+  {
+    "objectID": "index.html#descriptive-statistics",
+    "href": "index.html#descriptive-statistics",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "2.1 Descriptive Statistics",
+    "text": "2.1 Descriptive Statistics"
+  },
+  {
+    "objectID": "index.html#cell-counts",
+    "href": "index.html#cell-counts",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "2.2 Cell Counts",
+    "text": "2.2 Cell Counts\n\nAge\n\n\nCode\n#Descriptive statistics for continuous variable (age)\ndescriptives |&gt;\n  gt() |&gt;\n  fmt_number(columns = where(is.numeric), decimals = 2)\n\n\n\n\n\n\n\n\nvariable\nmean\nsd\nmin\nmax\n\n\n\n\nAge\n29.70\n14.53\n0.42\n80.00\n\n\n\n\n\n\n\nCode\ndescriptives\n\n\n# A tibble: 1 × 5\n  variable  mean    sd   min   max\n  &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;\n1 Age       29.7  14.5  0.42    80\n\n\n\n\nSurvived (Outcome Variable)\n\n\nCode\ntitanic|&gt;\n  count(Survived.Char)|&gt;\n  gt()\n\n\n\n\n\n\n\n\nSurvived.Char\nn\n\n\n\n\nDied\n424\n\n\nSurvived\n290\n\n\n\n\n\n\n\n\n\nSex\n\n\nCode\ntitanic|&gt;\n  count(Sex.Binary)|&gt;\n  gt()\n\n\n\n\n\n\n\n\nSex.Binary\nn\n\n\n\n\n0\n453\n\n\n1\n261\n\n\n\n\n\n\n\n\n\nSES/Class\n\n\nCode\ntitanic|&gt;\n  count(Pclass.Char)|&gt;\n  gt()\n\n\n\n\n\n\n\n\nPclass.Char\nn\n\n\n\n\nFirst Class\n186\n\n\nSecond Class\n173\n\n\nThird Class\n355"
+  },
+  {
+    "objectID": "index.html#patterns-observed",
+    "href": "index.html#patterns-observed",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "2.3 Patterns Observed",
+    "text": "2.3 Patterns Observed\nBefore looking into the interactions between the predictors, the general patterns that can be observed are that the mean age is 29.6, significantly more died than survived, there were more males than females, and that the largest amounts of tickets sold were from third class. These cell counts are not evenly distributed, but to varying degrees. Upon further inspection it can be found that 40.6% survived, versus 59.4% did not, however regarding the sex of those on board, the distribution was increasingly uneven as there was 63.4% males and 36.6% females. Finally, with respect to class/socioeconomic status was relatively even between first and second class (26.1% and 24.2% respectively), and third class being 50%."
+  },
+  {
+    "objectID": "index.html#predicting-patterns",
+    "href": "index.html#predicting-patterns",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "3.1 Predicting Patterns",
+    "text": "3.1 Predicting Patterns\nIn this dataset, we have the outcome variable, being those that survived, based on the predict values being age, socioeconomic status (SES) and sex.\nBased on on the social and political climate of 1912, the survival of individuals would likely reflect specific factors. For example, those with a first class ticket are likely of a higher SES, and within this time period may have been viewed as more “valuable”, prioritizing their lives over the lives of those in third class.\nAdditionally, though women did not possess as many rights within this time in history, they have childbearing abilities, which may contribute to a higher rate of survival in women compared to men.\nFinally, I expect that the survivors will likely be of lower age, potentially below 30. This would be for reasons pertaining to ocean survival in the lifeboats, and a longer lifespan ahead of them after being rescued, as unfortunate as these ideas are."
+  },
+  {
+    "objectID": "index.html#specifying-four-nested-models",
+    "href": "index.html#specifying-four-nested-models",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "3.2 Specifying Four Nested Models",
+    "text": "3.2 Specifying Four Nested Models\n\n\nCode\n#2.2 - Specifying Nested Models \n\n#Intercept-Only model \nmodel0 &lt;- glmmTMB(Survived ~ 1,data = titanic,\n  family = binomial(link = \"logit\"))\n\n#Survival Based on Sex  \nmodel1 &lt;- glmmTMB(\n  Survived ~ Sex, \n  data = titanic, \n  family = binomial(link = \"logit\"))\n\n#Survival Based on Sex + Ticket Class \nmodel2 &lt;- glmmTMB(\n  Survived ~ Sex + Pclass, \n  data = titanic, \n  family = binomial(link = \"logit\"))\n\n#Survival Based on Sex + Ticket Class + Age \nmodel3 &lt;- glmmTMB(\n  Survived ~ Sex + Pclass + Age, \n  data = titanic,\n  family = binomial(link = \"logit\"))\n\n\n\n4 Models\n\n\nCode\nlibrary(gt)\nmodel_table &lt;- list(model0, model1, model2, model3)\nmodel_table &lt;- data.frame(\n  Model = c(\"model0\", \"model1\", \"model2\", \"model3\"),\n  Added = c(\"Intercept (null)\", \"Sex\", \"Pclass\", \"Age\"), \n  Formula = sapply(model_table, function(m)\n    paste(deparse(formula(m)), collapse = \"\"))\n)\n  \nmodel_table |&gt;\n  gt()|&gt;\n  cols_label(\n    Model = \"Model\",\n    Added = \"Predictor added\", \n    Formula = \"Formula\"\n  )\n\n\n\n\n\n\n\n\nModel\nPredictor added\nFormula\n\n\n\n\nmodel0\nIntercept (null)\nSurvived ~ 1\n\n\nmodel1\nSex\nSurvived ~ Sex\n\n\nmodel2\nPclass\nSurvived ~ Sex + Pclass\n\n\nmodel3\nAge\nSurvived ~ Sex + Pclass + Age"
+  },
+  {
+    "objectID": "index.html#interpreting-intercept-throughout-models",
+    "href": "index.html#interpreting-intercept-throughout-models",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "3.2 Interpreting Intercept Throughout Models",
+    "text": "3.2 Interpreting Intercept Throughout Models\nWe can see that as the predictors are being added, there is an increase in the estimated intercept, being 1.12, 2.33, and 3.78, respectively. The first intercept in Model 1 is a reflection of the females on board, as seen by the “Sexmale” category being (-2.48), showing the coefficient of their lesser likelihood of surviving compared to women. In Model 2, however when adding the Pclass, the intercept increased to 2.33, being the log-odds of survival of the females in first class, as seen by the Sexmale decreasing to -2.57, showing the males in first class have similar likelihood of survival as females (as we’ve held class constant with little coefficient change), followed by the Pclass2 (-0.93) and 3 (-1.97) which have increasingly worse survival rates. Finally, in Model 3 with the addition of age, whose slope coefficient is 3.78, meaning that every year added decreases the log-odds of survival by such value. This means that those who were younger had a higher odds of survival. The slope coefficients showing a decreased rate of survival is due to their negative value, showing that the inclusion of that specific predictor value would decrease the odds of survival, as seen throughout their addition in each model. Looking at the AIC and BIC which penalize complexity (added predictors) when not increasing the predictive value of the equations. However, it can be seen that there is a desirable decrease in both AIC and BIC throughout the models, with model3 exhibiting the smallest of both and how this model best-fitting"
+  },
+  {
+    "objectID": "index.html#comparing-models",
+    "href": "index.html#comparing-models",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "4.1 Comparing Models",
+    "text": "4.1 Comparing Models\n\n\nCode\n#Creating table from ANOVA results to retain \ntests &lt;- tests |&gt;\n  select(Chisq, `Chi Df`, `Pr(&gt;Chisq)`) |&gt;\n  rename(\n    Nested.df = `Chi Df`,\n    Nested.Chisq.stat = Chisq,\n    Nested.p.value = `Pr(&gt;Chisq)`)\n\n\n\nEvaluating Predictors & Model Fit\n\nAs Sex was added from the intercept only model, sex can explain significantly more variation, as explained in a few of the produced values. The change in Degrees of Freedom shows the extra row of male versus female, the χ² statistic, whose value exhibits the decrease in deviance, so the larger the number, the better the fit of the model. We can see that there was a large increase, χ²(1) = 213.82, p &lt; .001 in this value, meaning that the model has a better fit and accounts for significantly more variation than the intercept model alone. Additionally, the Pr(&gt;Chisq) value shows high levels of significance.\nThe Pclass additionally improves model fit beyond sex, as seen by another substantially large value, χ²(2) = 78.27, p &lt; .001 degrees of freedom, in the Chisq column (χ² statistic), representing a drop in deviance, reflecting a better-fitting model. Although it is not as large as the change from Model 0 to Model 1, the number is adequate to believe that it positively impacts the predictive value of the model. There was no change in the p-value, however.\nFinally, adding age does improve the model fit beyond the value of ‘Sex’ and ‘Pclass’, however according ot the χ² value, the least out of all predictors, as it was only as it was only χ²(1) = 25.15, p &lt; .001. However, this change is enough to believe that the addition of ‘Age’ does have a positive effect on model fit. There was an small increase in the p-value, but it is still showing significance and is not reflective on the value of the predictor. It should be noted that the change in the degrees of freedom is reflective of the addition of new predictors/rows within the model."
+  },
+  {
+    "objectID": "index.html#extract-model-performance-combine-results",
+    "href": "index.html#extract-model-performance-combine-results",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "4.2-3 Extract Model Performance & Combine Results",
+    "text": "4.2-3 Extract Model Performance & Combine Results\n\n\nCode\n#3.2 - Extracting Metrics into \"Glance\"\nglance0 &lt;- broom.mixed::glance(model0)\nglance1 &lt;- broom.mixed::glance(model1)\nglance2 &lt;- broom.mixed::glance(model2)\nglance3 &lt;- broom.mixed::glance(model3)\n\n#Renaming the Models\nmodels &lt;- c(\n  \"model0: Null\",\n  \"model1: Sex\",\n  \"model2: + Pclass\",\n  \"model3: + Age\")\n\n#Combining the rows \nglances &lt;- rbind(glance0, glance1, glance2, glance3)"
+  },
+  {
+    "objectID": "index.html#combining-results",
+    "href": "index.html#combining-results",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "4.3 Combining Results",
+    "text": "4.3 Combining Results\n\n\nCode\n#3.3 - Combining sets of results \ncomparison_table &lt;- cbind(\n  Model = models,\n  glances,\n  tests)"
+  },
+  {
+    "objectID": "index.html#combined-model-comparison-table",
+    "href": "index.html#combined-model-comparison-table",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "4.4 Combined Model Comparison Table",
+    "text": "4.4 Combined Model Comparison Table\n\n\nCode\n#Creating Model Comparison Table\ncomparison_table |&gt;\n  select(\n    Model,\n    AIC,\n    BIC,\n    logLik,\n    deviance,\n    df.residual,\n    Nested.df,\n    Nested.Chisq.stat,\n    Nested.p.value) |&gt;\n  gt() |&gt;\n  cols_label(\n    Model = \"Model\",\n    AIC = \"AIC\",\n    BIC = \"BIC\",\n    logLik = \"Log-likelihood\",\n    deviance = \"Deviance\",\n    df.residual = \"Residual.df\",\n    Nested.df = \"Nested df\",\n    Nested.Chisq.stat = \"Nested χ²\",\n    Nested.p.value = \"Nested p\") |&gt;\n  fmt_number(\n    columns = c(\n      AIC,\n      BIC,\n      logLik,\n      deviance,\n      Nested.Chisq.stat),\n    decimals = 3) |&gt;\n  fmt(\n    columns = Nested.p.value,\n    fns = function(x) {\n      ifelse(\n        is.na(x),\n        \"—\",\n        ifelse(x &lt; .001, \"&lt; .001\", sprintf(\"%.3f\", x)))}) |&gt;\n  sub_missing(\n    columns = c(Nested.df, Nested.Chisq.stat),\n    missing_text = \"—\")\n\n\n\n\n\n\n\n\nModel\nAIC\nBIC\nLog-likelihood\nDeviance\nResidual.df\nNested df\nNested χ²\nNested p\n\n\n\n\nmodel0: Null\n966.516\n971.087\n−482.258\n964.516\n713\n—\n—\n—\n\n\nmodel1: Sex\n754.700\n763.842\n−375.350\n750.700\n712\n1\n213.816\n&lt; .001\n\n\nmodel2: + Pclass\n680.431\n698.714\n−336.215\n672.431\n710\n2\n78.269\n&lt; .001\n\n\nmodel3: + Age\n657.283\n680.138\n−323.642\n647.283\n709\n1\n25.148\n&lt; .001\n\n\n\n\n\n\n\n\n\nCode\nperformance_comparison &lt;- compare_performance(\n  model0,\n  model1,\n  model2,\n  model3,\n  rank = TRUE)"
+  },
+  {
+    "objectID": "index.html#interpreting-comparisons",
+    "href": "index.html#interpreting-comparisons",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "4.5 Interpreting Comparisons",
+    "text": "4.5 Interpreting Comparisons\nWhen examining the outputted table, the model fit and complexity is reflected through the AIC and BIC values, with lower values indicating a balance between complexity and fit, and an even stronger penalty for complexity (respectively). With these criteria, the models with the lowest AIC and BIC values, being model 3, with (AIC = 657.28, BIC = 680.14), it would be the best fit to the data. As the predictors are added, the AIC and BIC values decrease significantly between all models as predictors are added, however the smallest decrease in BIC values was found between models 2 and 3 through the addition of the ‘Age’ predictor, yet this was the smallest improvement. While examining the likelihood-ratio tests (LRT), a larger number that the previous model is desirable, as it means that the deviance has decreased through this more complex model. When additional predictors are added, the LRT scores increase noticeably, as they become less and less negative. Similar to the AIC and BIC tests, however, although the scores still exhibit an increase in the LRT value, there is a significantly smaller increase in values from model 2 to model 3 (similar to the pattern of decreases seen in the AIC and BIC scores). The largest differences in AIC, BIC and LRT scores are seen from model 0 to model 1 (naturally), then from model 1 to model 2, and the smallest differences from model 2 to model 3 - again, these are consistent across metrics. This would reflect that the ‘Sex’ and ‘PClass’ predictors accounting for a greater variance than ‘Age’, providing a greater contribution. All of the above do have a nested p value of &lt;0.001, once more highlighting the improvement of model fit."
+  },
+  {
+    "objectID": "index.html#linearity-on-logit-scale",
+    "href": "index.html#linearity-on-logit-scale",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "6.1 Linearity on Logit Scale",
+    "text": "6.1 Linearity on Logit Scale\n\n\nCode\nset.seed(9041)\nres_mod3 &lt;- simulateResiduals(model3, n = 500, plot = FALSE)"
+  },
+  {
+    "objectID": "index.html#collinearity",
+    "href": "index.html#collinearity",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "6.2 Collinearity",
+    "text": "6.2 Collinearity\n\n\n# Check for Multicollinearity\n\nLow Correlation\n\n   Term  VIF   VIF 95% CI adj. VIF Tolerance Tolerance 95% CI\n    Sex 1.07 [1.02, 1.23]     1.04      0.93     [0.81, 0.98]\n Pclass 1.42 [1.30, 1.57]     1.09      0.71     [0.64, 0.77]\n    Age 1.33 [1.23, 1.48]     1.15      0.75     [0.68, 0.81]\n\n\n\n\nCode\nvif_plot &lt;- plot(check_collinearity(model3))\nvif_plot \n\n\n\n\n\n\n\n\n\nCode\nvif_tbl &lt;- performance::check_collinearity(model3)"
+  },
+  {
+    "objectID": "index.html#complete-separation",
+    "href": "index.html#complete-separation",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "6.3 Complete separation",
+    "text": "6.3 Complete separation\nIt is important to check for complete separation using large coefficients, standard errors and code warnings through the glmmTMB warnings about convergence.\nUpon inspecting Model 3, these characteristics are not present, and the standard error is low."
+  },
+  {
+    "objectID": "index.html#influence-influential-observations",
+    "href": "index.html#influence-influential-observations",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "6.4 Influence (Influential Observations)",
+    "text": "6.4 Influence (Influential Observations)\n\n\nCode\ntestOutliers(res_mod3)\n\n\n\n\n\n\n\n\n\n\n    DHARMa outlier test based on exact binomial test with approximate\n    expectations\n\ndata:  res_mod3\noutliers at both margin(s) = 1, observations = 714, p-value = 0.5412\nalternative hypothesis: true probability of success is not equal to 0.003992016\n95 percent confidence interval:\n 3.545849e-05 7.778486e-03\nsample estimates:\nfrequency of outliers (expected: 0.00399201596806387 ) \n                                            0.00140056"
+  },
+  {
+    "objectID": "index.html#events-per-predictor",
+    "href": "index.html#events-per-predictor",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "6.5 Events per predictor",
+    "text": "6.5 Events per predictor\nIt is necessary to have at least 10 events and 10 non-events per coefficient. This data displays 290 events and 424 nonevents, meaning the events are sufficient.\n\nReport your diagnostic findings\nWhen looking at the diagnostic reports from Model 3, we can see the assumptions which have been satisfied versus those which have not. We can initially see that the QQ displays residuals with very small deviation from the predicted plot from the uniform distribution typically seen in a log-odds scale. The expected and the observed remain quite similar, and there are seemingly no observations which carry high influence. There is little deviation away from the expected as well. With this, it is important to check for collinearity, as that might influence the shape of the distribution or the variance that we have seen, however with a VIF of 1.42, it is seen that there is negligible collinearity to consider. When examining complete separation, though there is a proper distribution and prediction, there is no single predictor that seemingly predicts the outcome variable without input. In conjunction with this observation, when looking at events per predictor, we can see that there are sufficient amounts of each coefficient for the predictor variables (in the hundreds, despite the minimum expectation being 10 for each coefficient). Finally, looking into whether all the aforementioned data can be used reliably would involved assessing the outlier values which may have influence, however the outliers have not been noted, and the data looks to remain within expected values. As a whole, there are seemingly no significant problems within diagnostics of the model which would allude to its unreliability. The distribition, influential values, residuals plots, collinearity, and other significant features of the data are seemingly substantial to allow for this model to reliably predict data."
+  },
+  {
+    "objectID": "index.html#extracting-binary-logistic-regression-coefficients",
+    "href": "index.html#extracting-binary-logistic-regression-coefficients",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "7.1 Extracting Binary Logistic Regression Coefficients",
+    "text": "7.1 Extracting Binary Logistic Regression Coefficients\n\n\nCode\n#Extracting the Results for Coefficient Table\ncoefficient_results &lt;- broom.mixed::tidy(\n  selected_model,\n  effects = \"fixed\",\n  component = \"cond\",\n  conf.int = TRUE,\n  conf.level = 0.95)"
+  },
+  {
+    "objectID": "index.html#creating-binary-logistic-regression-table",
+    "href": "index.html#creating-binary-logistic-regression-table",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "7.2 Creating Binary Logistic Regression Table",
+    "text": "7.2 Creating Binary Logistic Regression Table\n\n\nCode\n#Creating the Table With Desired Values \n\ncoefficient_results |&gt;\n  select(\n    term,\n    estimate,\n    std.error,\n    conf.low,\n    conf.high,\n    p.value) |&gt;\n  gt() |&gt;\n  cols_label(\n    term = \"Predictor\",\n    estimate = \"Estimate\",\n    std.error = \"SE\",\n    conf.low = \"95% CI lower\",\n    conf.high = \"95% CI upper\",\n    p.value = \"p\") |&gt;\n  fmt_number(\n    columns = c(\n      estimate,\n      std.error,\n      conf.low,\n      conf.high),\n    decimals = 3) |&gt;\n  fmt(\n    columns = p.value,\n    fns = function(x) {\n      ifelse(\n        x &lt; .001,\n        \"&lt; .001\",\n        sprintf(\"%.3f\", x))})\n\n\n\n\n\n\n\n\nPredictor\nEstimate\nSE\n95% CI lower\n95% CI upper\np\n\n\n\n\n(Intercept)\n3.777\n0.401\n2.991\n4.563\n&lt; .001\n\n\nSexmale\n−2.523\n0.207\n−2.929\n−2.116\n&lt; .001\n\n\nPclass2\n−1.310\n0.278\n−1.855\n−0.765\n&lt; .001\n\n\nPclass3\n−2.581\n0.281\n−3.132\n−2.029\n&lt; .001\n\n\nAge\n−0.037\n0.008\n−0.052\n−0.022\n&lt; .001"
+  },
+  {
+    "objectID": "index.html#report-overall-model-performance",
+    "href": "index.html#report-overall-model-performance",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "7.3 Report Overall Model Performance",
+    "text": "7.3 Report Overall Model Performance\n\n\nCode\n#Creating Table Displaying Model Performance\nselected_row |&gt;\n  select(\n    Model,\n    AIC,\n    BIC,\n    logLik,\n    deviance,\n    df.residual,\n    Nested.df,\n    Nested.Chisq.stat,\n    Nested.p.value) |&gt;\n  gt() |&gt;\n  cols_label(\n    Model = \"Model\",\n    AIC = \"AIC\",\n    BIC = \"BIC\",\n    logLik = \"Log-likelihood\",\n    deviance = \"Deviance\",\n    df.residual = \"Residual df\",\n    Nested.df = \"Nested df\",\n    Nested.Chisq.stat = \"Nested χ²\",\n    Nested.p.value = \"Nested p\") |&gt;\n  fmt_number(\n    columns = where(is.numeric),\n    decimals = 2)\n\n\n\n\n\n\n\n\nModel\nAIC\nBIC\nLog-likelihood\nDeviance\nResidual df\nNested df\nNested χ²\nNested p\n\n\n\n\nmodel3: + Age\n657.28\n680.14\n−323.64\n647.28\n709.00\n1.00\n25.15\n0.00"
+  },
+  {
+    "objectID": "index.html#coefficients-on-log-odds-scale",
+    "href": "index.html#coefficients-on-log-odds-scale",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "8.1 Coefficients on Log-Odds Scale",
+    "text": "8.1 Coefficients on Log-Odds Scale\n\n\nCode\n#Coefficients on the Log-odds Scale \nfixef(model3)\n\n\n\nConditional model:\n(Intercept)      Sexmale      Pclass2      Pclass3          Age  \n    3.77701     -2.52278     -1.30980     -2.58063     -0.03699  \n\n\nWe took data from the titanic and used four nested binary logistic regression models using predictors of Sex, Age, and Socioeconomic Class (Pclass). We can assess the log-odds of each of these values while holding the others constant.\nWhen consdering Sex, and holding the Sexmale (Males) as a reference group, this represents the log-odds difference between the two, while holding ge and Pclass constant. The log-odds of survival decrease by -2.52 for a male versus a female.\nWhen considering Pclass, first class (Pclass1) is going the reference group, holding Sex and Age constant. The log-odds of survival decrease by log odds of -1.31 for second class and -2.58 for third class.\nFinally, when adding the predictor of Age and holding Sex and Pclass constant, a one point increase in age decreases the log-odds of survival by -0.04."
+  },
+  {
+    "objectID": "index.html#tranform-log-odds-into-odds",
+    "href": "index.html#tranform-log-odds-into-odds",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "8.2 Tranform Log-Odds into Odds",
+    "text": "8.2 Tranform Log-Odds into Odds\n\n\nCode\n#From Log-odds into odds ratios\nexp(fixef(model3)$cond)\n\n\n(Intercept)     Sexmale     Pclass2     Pclass3         Age \n43.68537504  0.08023611  0.26987411  0.07572659  0.96369034 \n\n\n\nConfidence Intervals\n\n\nCode\n#Exponentiating CI\nor_ci &lt;- exp(confint(model3, parm = \"beta_\"))\nor_ci\n\n\n                  2.5 %     97.5 %    Estimate\n(Intercept) 19.90247237 95.8881870 43.68537504\nSexmale      0.05343656  0.1204762  0.08023611\nPclass2      0.15648543  0.4654238  0.26987411\nPclass3      0.04362034  0.1314643  0.07572659\nAge          0.94933776  0.9782599  0.96369034\n\n\nWe fit 4 nested models with the outcome of survival, then added Sex, Pclass and Age. We can now look at the odds of each of the predictors and their relation to survival.\n\n\nInterpreting Age\nWhile holding Sex and Class constant, a one-year increase in Age, when holding sex and the class being held constant, there is a decrease in the odds of survival by 0.96, multiplied by times the odds of survival, 95% CI [0.95, 0.98].\n\n\nInterpreting Sex\nWhen holding age and socioeconomic status constant, the log-odds difference between males and females can be found. Using females as the reference group, the males’ odds of survival are decreased by with 0.08 times the odds of survival, 95% CI [0.05, 0.12].\n\n\nInterpreting Pclass\nWhen holding sex and age constant, the differences in odds between socioeconomic status, being Pclass2 and Pclass3 compared to the Pclass1 being the reference group. Pclass2 compared to Pclass 1 had 0.27, with the 95% CI being times th odds of survivals with the log odds of survival being [0.16, 0.47]. The Pclass3 comapred to Pclass1 is 0.08 multiplied by the odds of survival is 95% CI [0.04, 0.13]."
+  },
+  {
+    "objectID": "index.html#visualize-a-predictor",
+    "href": "index.html#visualize-a-predictor",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "8.3 Visualize A Predictor",
+    "text": "8.3 Visualize A Predictor\n\n\nCode\nlibrary(ggeffects)\npred_sat &lt;- ggpredict(model3, terms = \"Age\")\n\nggplot(pred_sat, aes(x, predicted)) +\n  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.18) +\n  geom_line(linewidth = 1.2) +\n  labs(\n    x = \"Passenger Age\",\n    y = \"Survival on the Titanic\"\n  ) +\n  theme_classic()\n\n\n\n\n\n\n\n\n\n\nResults Paragraph\nIn this statistical analysis, we used a binary GLM and the use of the logit link in order to assess the factors of Sex, Age, and Socioeconomic status (Pclass/SES). As a whole, females compared to males had higher odds of survival, 0.08, 95% CI [0.05, 0.12], 0.12]. This means that women were prioritized for their survival over men. When accounting for the SES, a higher class (first class over second or third) was associated with higher odds of surviving in both women and men. Decreased odds of survival seen in second class 0.27, 95% CI [0.16, 0.47], versus decreased odds of survival in third class 0.08, 95% CI [0.04, 0.13]. As a whole, those with a higher social status and “financial standing” were given a greater chance of survival. Finally, when accounting for age, it was seen that every additional year of age was associated in a decrease in odds of survival, 0.96, 95% CI [0.95, 0.98]. This shows that the priority was given to those who were younger, and even kids - similar to the prediction of the model. As seen in the movies, women, children and the rich were given priority over the alternate."
+  },
+  {
+    "objectID": "index.html#discussion-of-findings-and-limitations",
+    "href": "index.html#discussion-of-findings-and-limitations",
+    "title": "Binary Logistic Regression: Model Specification, Comparison, and Interpretation",
+    "section": "6 Discussion of Findings and Limitations",
+    "text": "6 Discussion of Findings and Limitations\nThis analysis illustrates how relationships may be deduced from binary logistic regression models, and allows for the contribution of each variable to be understood in a model weighing predictors to an outcome. This final model takes three factors into account when assess survival rate.\nA limitation is that this is observational data, and that other factors pertaining to survival such as certain areas on the ship, or “self-sacrifice” for family were not taken into account. With this, other variables such as family on the ship versus at home could have played a role. There was also no account for health or mobility conditions, which could influence the nature of physical feasibility of escape."
+  }
+]
